@@ -1,7 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, Button } from 'react-native';
 import Constants from 'expo-constants';
-//import * as Device from 'expo-device';
+import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import React, { useState, useEffect, useRef } from 'react';
 import {WebView} from 'react-native-webview'
@@ -17,41 +17,59 @@ Notifications.setNotificationHandler({
 });
 export default function App() {
 
+  const [expoPushToken, setExpoPushToken] = useState('');
+  const [notification, setNotification] = useState(false);
   const notificationListener = useRef();
   const responseListener = useRef();
-  const [pushState,setPushState] = useState(null);
-  const [expoPushToken,setExpoPushToken] = useState(null);
 
   useEffect(() => {
+    registerForPushNotificationsAsync().then(token => setExpoPushToken(token));
     // ④ユーザが通知をフォアグラウンドで開いた場合のリスナー
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      setPushState("フォアグラウンドで通知を受信しました。");
+      setNotification(notification);
+    });
+     // ⑤ユーザが通知を開いた場合のリスナー
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log(expoPushToken);
+      console.log(response);
     });
 
-    // ⑤ユーザが通知を開いた場合のリスナー
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      setPushState("通知を開きました。")
-    });
-    // userEffectのreturnに登録する関数は、コンポーネントがunmountされるときに実行される。ここで主にcleanup処理を定義する
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener);
-      Notifications.removeNotificationSubscription(responseListener);
+      // userEffectのreturnに登録する関数は、コンポーネントがunmountされるときに実行される。ここで主にcleanup処理を定義する
+      Notifications.removeNotificationSubscription(notificationListener.current);
+      Notifications.removeNotificationSubscription(responseListener.current);
     };
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'space-around',
+      }}>
       {/* <View style={{width:'100%',height:'100%'}}> 
         <WebView
           source={{ uri: OhGireal }}
           onLoad={console.log('loaded')}
         />
       </View> */}
+      <Text>Your expo push token: {expoPushToken}</Text>
+      <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+        <Text>Title: {notification && notification.request.content.title} </Text>
+        <Text>Body: {notification && notification.request.content.body}</Text>
+        <Text>Data: {notification && JSON.stringify(notification.request.content.data)}</Text>
+      </View>
       <Button
-        title="push通知用のトークンを取得"
+        title="Press to get a token"
         onPress={async () => {
-          const pushToken = await registerForPushNotificationsAsync()
-          setExpoPushToken(pushToken);
+          await registerForPushNotificationsAsync();
+        }}
+      />
+      <Button
+        title="Press to schedule a notification"
+        onPress={async () => {
+          await schedulePushNotification();
         }}
       />
       <StatusBar style="auto" />
@@ -59,9 +77,20 @@ export default function App() {
   );
 }
 
+async function schedulePushNotification() {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "You've got mail! 📬",
+      body: 'Here is the notification body',
+      data: { data: 'goes here' },
+    },
+    trigger: { seconds: 2 },
+  });
+}
+
 async function registerForPushNotificationsAsync() {
   let token;
-  if (Constants.isDevice) {
+  if (Device.isDevice) {
     //①このアプリからのPush通知の許可を取得
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -75,9 +104,11 @@ async function registerForPushNotificationsAsync() {
       alert('Failed to get push token for push notification!');
       return;
     }
+    
     //③通知用トークンの取得
-    token = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log(token);
+    token = (await Notifications.getExpoPushTokenAsync({ 
+      projectId: Constants.expoConfig.extra.eas.projectId, })).data;
+    console.log('hello');
   } else {
     //実機以外の場合
     alert('Must use physical device for Push Notifications');
