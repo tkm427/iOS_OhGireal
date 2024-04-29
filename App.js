@@ -76,7 +76,7 @@ export default function App() {
     </View>
   );
 }
-
+//ローカル通知
 async function schedulePushNotification() {
   await Notifications.scheduleNotificationAsync({
     content: {
@@ -107,8 +107,8 @@ async function registerForPushNotificationsAsync() {
     
     //③通知用トークンの取得
     token = (await Notifications.getExpoPushTokenAsync({ 
-      projectId: Constants.expoConfig.extra.eas.projectId, })).data;
-    console.log('hello');
+      projectId: '1139796b-5517-4098-be2e-b8eddb7b73ea', })).data;
+    console.log(token);
   } else {
     //実機以外の場合
     alert('Must use physical device for Push Notifications');
