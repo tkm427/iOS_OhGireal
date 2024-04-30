@@ -40,75 +40,49 @@ export default function App() {
       Notifications.removeNotificationSubscription(responseListener.current);
     };
   }, []);
-
   return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'space-around',
-      }}>
-      {/* <View style={{width:'100%',height:'100%'}}> 
+    <View>
+      <View style={{width:'100%',height:'100%'}}> 
         <WebView
+          ref={(r) => (this.webref = r)}
           source={{ uri: OhGireal }}
           onLoad={console.log('loaded')}
         />
-      </View> */}
-      <Text>Your expo push token: {expoPushToken}</Text>
-      <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <Text>Title: {notification && notification.request.content.title} </Text>
-        <Text>Body: {notification && notification.request.content.body}</Text>
-        <Text>Data: {notification && JSON.stringify(notification.request.content.data)}</Text>
       </View>
-      <Button
-        title="Press to get a token"
-        onPress={async () => {
-          await registerForPushNotificationsAsync();
-        }}
-      />
-      <Button
-        title="Press to schedule a notification"
-        onPress={async () => {
-          await schedulePushNotification();
-        }}
-      />
       <StatusBar style="auto" />
     </View>
   );
 }
 
-async function schedulePushNotification() {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "You've got mail! 📬",
-      body: 'Here is the notification body',
-      data: { data: 'goes here' },
-    },
-    trigger: { seconds: 2 },
-  });
-}
-
 async function registerForPushNotificationsAsync() {
   let token;
+
   if (Device.isDevice) {
     //①このアプリからのPush通知の許可を取得
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== 'granted') {
-       //②初回起動時は許可ダイアログを出してユーザからPush通知の許可を取得
+       //②初回起動時は許可ダイアログを出してユーザからPush通知の許可を取得.その後webviewに送信
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
+      token = (await Notifications.getExpoPushTokenAsync({ 
+        projectId: '1139796b-5517-4098-be2e-b8eddb7b73ea', })).data;
+      //DBに登録
+      fetch('https://oh-gireal.vercel.app/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({token})
+    });
     }
     if (finalStatus !== 'granted') {
       //許可がない場合
       alert('Failed to get push token for push notification!');
       return;
     }
-    
     //③通知用トークンの取得
     token = (await Notifications.getExpoPushTokenAsync({ 
-      projectId: Constants.expoConfig.extra.eas.projectId, })).data;
-    console.log('hello');
+      projectId: '1139796b-5517-4098-be2e-b8eddb7b73ea', })).data;
+    
   } else {
     //実機以外の場合
     alert('Must use physical device for Push Notifications');
